@@ -1,0 +1,27 @@
+{
+	"n_freq_print": 5,
+	"n_freq_checkpoint": 50,
+	"n_workers": 4,
+	"device_id": "cuda:0"
+	
+	"task_type": "seq-to-seq",
+	"window_size":100,
+	
+	"transformer_dim": 256,
+	"nhead": 8,
+	"num_encoder_layers": 6, 
+	"num_decoder_layers": 6, 
+	"dim_feedforward": 2048, 
+	"transformer_dropout": 0.1, 
+	"transformer_activation": "relu",
+	"mlp_activation": "relu",
+	
+	"batch_size": 32,
+	"lr": 1e-4,
+	"weight_decay": 1e-5,
+	"eps": 1e-10,
+	"lr_scheduler_step_size": 100,
+	"lr_scheduler_gamma": 0.5,
+	"n_epochs": 500
+}
+
