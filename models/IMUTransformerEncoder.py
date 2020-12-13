@@ -7,7 +7,7 @@ from torch import nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
-class IMUTransformerEncoder(nn.module):
+class IMUTransformerEncoder(nn.Module):
 
     def __init__(self, config):
         """
@@ -16,23 +16,24 @@ class IMUTransformerEncoder(nn.module):
         super().__init__()
 
         self.transformer_dim = config.get("transformer_dim")
-        self.input_proj = nn.Conv1d(6, transformer_dim, 1)
+        self.input_proj = nn.Conv1d(6, self.transformer_dim, 1)
         self.window_size = config.get("window_size")
-
 
         encoder_layer = TransformerEncoderLayer(d_model = self.transformer_dim,
                                        nhead = config.get("nhead"),
                                        dim_feedforward = config.get("dim_feedforward"),
                                        dropout = config.get("transformer_dropout"),
                                        activation = config.get("transformer_activation"))
-        self.transformer_encoder = TransformerEncoder(encoder_layer,
-                                              num_encoder_layers = config.get("num_encoder_layers"),
-                                              norm=nn.LayerNorm(d_model))
-        self.cls_token = nn.Parameter(torch.zeros((1, self.transformer_dim)), requires_grad=True)
-        config["output_dim"] = 1
-        self.mlp_head =  MLPHead(config)
 
-        self.log_softmax = nn.LogSoftMax(dim=1)
+        self.transformer_encoder = TransformerEncoder(encoder_layer,
+                                              num_layers = config.get("num_encoder_layers"),
+                                              norm=nn.LayerNorm(self.transformer_dim))
+        self.cls_token = nn.Parameter(torch.zeros((1, self.transformer_dim)), requires_grad=True)
+
+        config["output_dim"] = config.get("num_classes")
+        self.imu_head = IMUHead(config)
+
+        self.log_softmax = nn.LogSoftmax(dim=1)
 
         # init
         for p in self.parameters():
@@ -40,22 +41,36 @@ class IMUTransformerEncoder(nn.module):
                 nn.init.xavier_uniform_(p)
 
     def forward(self, data):
-            src = data.get('imu')
-            # Transformer pass
-            target = self.transformer_encoder(self.input_proj(src))[0]
-            target = self.log_softmax(self.self.mlp_head(target))
-            return target
+        src = data.get('imu')  # Shape N x S x C with S = sequence length, N = batch size, C = channels
 
-class MLPHead(nn.module):
+        # Embed in a high dimensional space and reshape to Transformer's expected shape
+        src = self.input_proj(src.transpose(1, 2)).permute(2, 0, 1)
+
+        # Prepend class token
+        cls_token = self.cls_token.unsqueeze(1).repeat(1, src.shape[1], 1)
+        src = torch.cat([cls_token, src])
+
+        # Transformer Encoder pass
+        target = self.transformer_encoder(src)[0]
+
+        # Class probability
+        target = self.log_softmax(self.imu_head(target))
+        return target
+
+
+class IMUHead(nn.Module):
 
     def __init__(self, config):
-        mlp_activation = config.get("mlp_activation")
+        super().__init__()
+
+        mlp_activation = config.get("head_activation")
         output_dim = config.get("output_dim")
-        self.mlp = nn.Sequential([nn.Linear(decoder_dim, decoder_dim / 2),
-                                       self._get_activation(mlp_activation),
-                                       nn.Linear(decoder_dim / 2, decoder_dim / 4),
-                                       self._get_activation(mlp_activation),
-                                       nn.Linear(decoder_dim / 4, output_dim)])
+        encoder_dim = config.get("transformer_dim")
+        self.mlp = nn.Sequential(nn.Linear(encoder_dim, encoder_dim // 2),
+                                       get_activation(mlp_activation),
+                                       nn.Linear(encoder_dim // 2, encoder_dim // 4),
+                                       get_activation(mlp_activation),
+                                       nn.Linear(encoder_dim // 4, output_dim))
         # init
         for p in self.parameters():
             if p.dim() > 1:
@@ -64,10 +79,11 @@ class MLPHead(nn.module):
     def forward(self, x):
         return self.mlp(x)
 
-    def _get_activation(self, activation):
-        """Return an activation function given a string"""
-        if activation == "relu":
-            return nn.Relu(inplace=True)
-        if activation == "gelu":
-            return nn.GELU()
-        raise RuntimeError("Activation {} not supported".format(activation))
+
+def get_activation(activation):
+    """Return an activation function given a string"""
+    if activation == "relu":
+        return nn.ReLU(inplace=True)
+    if activation == "gelu":
+        return nn.GELU()
+    raise RuntimeError("Activation {} not supported".format(activation))
