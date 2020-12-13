@@ -5,6 +5,7 @@ IMUTransformer model
 import torch
 from torch import nn
 from torch.nn import Transformer
+from models.IMUTransformerEncoder import get_activation
 
 class IMUTransformer(nn.Module):
 
@@ -15,7 +16,7 @@ class IMUTransformer(nn.Module):
         super().__init__()
 
         self.transformer_dim = config.get("transformer_dim")
-        self.input_proj = nn.Conv1d(6, transformer_dim, 1)
+        self.input_proj = nn.Conv1d(6, self.transformer_dim, 1)
         self.window_size = config.get("window_size")
 
         self.transformer = Transformer(d_model = self.transformer_dim,
@@ -26,12 +27,9 @@ class IMUTransformer(nn.Module):
                                        dropout = config.get("transformer_dropout"),
                                        activation = config.get("transformer_activation"))
 
-
-
-
-        self.query_embed = nn.Embedding(window_size, decoder_dim)
+        self.query_embed = nn.Embedding(self.window_size, self.transformer_dim)
         config["output_dim"] = 6
-        self.mlp_head =  MLPHead(config)
+        self.imu_head = IMUHead(config)
 
         # init
         for p in self.parameters():
@@ -40,34 +38,37 @@ class IMUTransformer(nn.Module):
 
 
     def forward(self, data):
-            src = data.get('imu')
-            # Transformer pass
-            target = self.transformer(self.input_proj(src), self.query_embed.weight).permute(1,2,0)
-            target = self.mlp_head(target)
-            return target
+            src = data.get('imu') # Shape N x S x C with S = sequence length, N = batch size, C = channels
+            # Embed in a high dimensional space and reshape to Transformer's expected shape
+            src = self.input_proj(src.transpose(1,2)).permute(2, 0, 1)
+            query = self.query_embed.weight.unsqueeze(1).repeat(1, src.shape[1], 1) # Shape S x N x C
 
-class MLPHead(nn.module):
+            # Transformer pass - gets tensor of shape of S x N x C  and outputs tensor of shape S' x N x C,
+            # in our case S=S'
+            target = self.transformer(src,query).permute(1,2,0)
+
+            target = self.imu_head(target).transpose(1,2)
+            return target # N x S x C
+
+class IMUHead(nn.Module):
 
     def __init__(self, config):
-        mlp_activation = config.get("mlp_activation")
+        super().__init__()
+
+        head_activation = config.get("head_activation")
         output_dim = config.get("output_dim")
-        self.mlp = nn.Sequential([nn.Conv1d(decoder_dim, decoder_dim/2, 1),
-                                       self._get_activation(mlp_activation),
-                                       nn.Conv1d(decoder_dim/2, decoder_dim /4, 1),
-                                       self._get_activation(mlp_activation),
-                                       nn.Conv1d(decoder_dim/4, output_dim, 1)])
+        decoder_dim = config.get("transformer_dim")
+        self.head = nn.Sequential(nn.Conv1d(decoder_dim, decoder_dim//2, 1),
+                                       get_activation(head_activation),
+                                       nn.Conv1d(decoder_dim//2, decoder_dim //4, 1),
+                                       get_activation(head_activation),
+                                       nn.Conv1d(decoder_dim//4, output_dim, 1))
+
         # init
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
     def forward(self, x):
-        return self.mlp(x)
+        return self.head(x)
 
-    def _get_activation(self, activation):
-        """Return an activation function given a string"""
-        if activation == "relu":
-            return nn.Relu(inplace=True)
-        if activation == "gelu":
-            return nn.GELU()
-        raise RuntimeError("Activation {} not supported".format(activation))
