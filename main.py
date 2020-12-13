@@ -1,5 +1,5 @@
 """
-Entry point training and testing IMU transformers
+Entry point for training and testing IMU transformers
 Code Forked from https://github.com/yolish/transposenet and modified for this purpose
 """
 import argparse
@@ -9,14 +9,14 @@ import json
 import logging
 from util import utils
 from os.path import join
-from .models.IMUTransformer import IMUTransformer
-from .models.IMUTransformerEncoder import IMUTransformerEncoder
+from models.IMUTransformer import IMUTransformer
+from models.IMUTransformerEncoder import IMUTransformerEncoder
+from util.IMUDataset import IMUDataset
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("mode", help="train or eval")
-    arg_parser.add_argument("dataset_path", help="path to the physical location of the dataset")
-    arg_parser.add_argument("labels_file", help="path to a file mapping images to their poses")
+    arg_parser.add_argument("mode", help="train or test")
+    arg_parser.add_argument("imu_dataset_file", help="path to a file mapping imu samples to labels")
     arg_parser.add_argument("--checkpoint_path",
                             help="path to a pre-trained model (should match the model indicated in model_name")
     arg_parser.add_argument("--experiment", help="a short string to describe the experiment/commit used")
@@ -25,11 +25,10 @@ if __name__ == "__main__":
     utils.init_logger()
 
     # Record execution details
-    logging.info("Start {} of IMU-transformers".format(args.model_name))
+    logging.info("Start {}ing IMU-transformers".format(args.mode))
     if args.experiment is not None:
         logging.info("Experiment details: {}".format(args.experiment))
-    logging.info("Using dataset: {}".format(args.dataset_path))
-    logging.info("Using labels file: {}".format(args.labels_file))
+    logging.info("Using imu dataset file: {}".format(args.imu_dataset_file))
 
     # Read configuration
     with open('config.json', "r") as read_file:
@@ -52,10 +51,10 @@ if __name__ == "__main__":
 
     # Create the model according to the task
     task_type = config.get("task_type")
-    if task == "seq-to-seq":
-        model = IMUTransformer(config)
+    if task_type == "seq-to-seq":
+        model = IMUTransformer(config).to(device)
     else: # seq-to-one 
-        model = IMUTransformerEncoder(config)
+        model = IMUTransformerEncoder(config).to(device)
 
     # Load the checkpoint if needed
     if args.checkpoint_path:
@@ -67,14 +66,13 @@ if __name__ == "__main__":
         model.train()
 
         # Set the loss
-        if task == "seq-to-seq":
+        if task_type == "seq-to-seq":
             loss = torch.nn.MSELoss()
-        else:
+        else: # seq-to-one
             loss = torch.nn.NLLLoss()
 
         # Set the optimizer and scheduler
-        params = list(model.parameters()) + list(pose_loss.parameters())
-        optim = torch.optim.Adam(filter(lambda p: p.requires_grad, params),
+        optim = torch.optim.Adam(model.parameters(),
                                   lr=config.get('lr'),
                                   eps=config.get('eps'),
                                   weight_decay=config.get('weight_decay'))
@@ -83,7 +81,8 @@ if __name__ == "__main__":
                                                     gamma=config.get('lr_scheduler_gamma'))
 
         # Set the dataset and data loader
-        dataset = IMUDataset(args.dataset_path, args.labels_file, transform)
+        window_size = config.get("window_size")
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type)
         loader_params = {'batch_size': config.get('batch_size'),
                                   'shuffle': True,
                                   'num_workers': config.get('n_workers')}
@@ -106,10 +105,9 @@ if __name__ == "__main__":
             n_samples = 0
 
             for batch_idx, minibatch in enumerate(dataloader):
-                for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
-                label = minibatch.get('label').to(device)
-                batch_size = input.shape[0]
+                minibatch["imu"] = minibatch["imu"].to(device).to(dtype=torch.float32)
+                label = minibatch.get('label').to(device).to(dtype=torch.long)
+                batch_size = label.shape[0]
                 n_samples += batch_size
                 n_total_samples += batch_size
 
@@ -119,6 +117,7 @@ if __name__ == "__main__":
                 # Forward pass
                 res = model(minibatch)
 
+                # Compute loss
                 criterion = loss(res, label)
 
                 # Collect for recoding and plotting
@@ -154,7 +153,8 @@ if __name__ == "__main__":
         model.eval()
 
         # Set the dataset and data loader
-        dataset = IMUDataset(args.dataset_path, args.labels_file, transform)
+        window_size = config.get("window_size")
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
                          'num_workers': config.get('n_workers')}
@@ -162,10 +162,9 @@ if __name__ == "__main__":
 
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
-                for k, v in minibatch.items():
-                    minibatch[k] = v.to(device)
 
-                label = minibatch.get('label').to(device)
+                minibatch["imu"] = minibatch["imu"].to(device).to(dtype=torch.float32)
+                label = minibatch.get('label').to(device).to(dtype=torch.long)
 
                 # Forward pass to predict the pose
                 res = model(minibatch)
@@ -173,5 +172,5 @@ if __name__ == "__main__":
                 # Evaluate error and record - TBA
 
         # Record overall statistics
-        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.labels_file))
+        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.args.imu_dataset_file))
         # TBA record summary statistics
