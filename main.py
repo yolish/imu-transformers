@@ -82,7 +82,8 @@ if __name__ == "__main__":
 
         # Set the dataset and data loader
         window_size = config.get("window_size")
-        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type)
+        input_size = config.get("input_dim")
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size)
         loader_params = {'batch_size': config.get('batch_size'),
                                   'shuffle': True,
                                   'num_workers': config.get('n_workers')}
@@ -145,8 +146,8 @@ if __name__ == "__main__":
         torch.save(model.state_dict(), checkpoint_prefix + '_final.pth'.format(epoch))
 
         # Plot the loss function
-        loss_fig_path = checkpoint_prefix + "_loss_fig.png"
-        utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
+        #loss_fig_path = checkpoint_prefix + "_loss_fig.png"
+        #utils.plot_loss_func(sample_count, loss_vals, loss_fig_path)
 
     else: # Test
         # Set to eval mode
@@ -154,12 +155,14 @@ if __name__ == "__main__":
 
         # Set the dataset and data loader
         window_size = config.get("window_size")
-        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type)
+        input_size = config.get("input_dim")
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
                          'num_workers': config.get('n_workers')}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
 
+        metric = []
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
 
@@ -169,8 +172,19 @@ if __name__ == "__main__":
                 # Forward pass to predict the pose
                 res = model(minibatch)
 
-                # Evaluate error and record - TBA
+                # Evaluate and append
+                if task_type == "seq-to-seq":
+                    curr_metric = torch.norm(res-label)
+                else:  # seq-to-one
+                    curr_metric = (torch.argmax(res)==label).to(torch.int)
+                print(curr_metric)
+                metric.append(curr_metric.item())
 
         # Record overall statistics
-        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.args.imu_dataset_file))
-        # TBA record summary statistics
+        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.imu_dataset_file))
+
+        if task_type == "seq-to-seq":
+            pass # TBA record summary statistics
+        else:
+            print(np.mean(metric))
+
