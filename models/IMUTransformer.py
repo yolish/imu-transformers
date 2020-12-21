@@ -16,8 +16,10 @@ class IMUTransformer(nn.Module):
         super().__init__()
 
         self.transformer_dim = config.get("transformer_dim")
-        self.input_proj = nn.Conv1d(6, self.transformer_dim, 1)
+        input_dim = config.get("input_dim")
+        self.input_proj = nn.Conv1d(input_dim, self.transformer_dim, 1)
         self.window_size = config.get("window_size")
+        self.encode_position = config.get("encode_position")
 
         self.transformer = Transformer(d_model = self.transformer_dim,
                                        nhead = config.get("nhead"),
@@ -26,9 +28,10 @@ class IMUTransformer(nn.Module):
                                        dim_feedforward = config.get("dim_feedforward"),
                                        dropout = config.get("transformer_dropout"),
                                        activation = config.get("transformer_activation"))
-
+        if self.encode_position:
+            self.position_embed = nn.Parameter(torch.randn(self.window_size, 1, self.transformer_dim))
         self.query_embed = nn.Embedding(self.window_size, self.transformer_dim)
-        config["output_dim"] = 6
+        config["output_dim"] = input_dim
         self.imu_head = IMUHead(config)
 
         # init
@@ -39,8 +42,15 @@ class IMUTransformer(nn.Module):
 
     def forward(self, data):
             src = data.get('imu') # Shape N x S x C with S = sequence length, N = batch size, C = channels
+
             # Embed in a high dimensional space and reshape to Transformer's expected shape
             src = self.input_proj(src.transpose(1,2)).permute(2, 0, 1)
+
+
+            if self.encode_position:
+                # Add the position embedding
+                src += self.position_embed
+
             query = self.query_embed.weight.unsqueeze(1).repeat(1, src.shape[1], 1) # Shape S x N x C
 
             # Transformer pass - gets tensor of shape of S x N x C  and outputs tensor of shape S' x N x C,
