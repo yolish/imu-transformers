@@ -10,19 +10,22 @@ class IMUDataset(Dataset):
         A class representing a dataset for IMU learning tasks
     """
 
-    def __init__(self, imu_dataset_file, window_size, task_type):
+    def __init__(self, imu_dataset_file, window_size, task_type, input_size):
         """
         :param imu_dataset_file: (str) a file with imu signals and their labels
         :param window_size (int): the window size to consider
         :param task_type (str): seq-to-seq or seq-to-one
+        :param input_size (int): the input size (e.g. 6 for 6 IMU measurements)
         :return: an instance of the class
         """
         super(IMUDataset, self).__init__()
         # Read the file
         df = pd.read_csv(imu_dataset_file)
+        if df.shape[1] == 1:
+            df = pd.read_csv(imu_dataset_file, delimiter='\t')
         # Fetch the flatten IMU data and labels
-        flatten_imu = df.iloc[:, :6].values
-        flatten_labels = df.iloc[:, 6:].values
+        flatten_imu = df.iloc[:, :input_size].values
+        flatten_labels = df.iloc[:, input_size:].values
         n = flatten_labels.shape[0]
         assert n % window_size == 0
         imu = []
