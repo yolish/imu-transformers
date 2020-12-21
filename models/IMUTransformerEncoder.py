@@ -16,8 +16,9 @@ class IMUTransformerEncoder(nn.Module):
         super().__init__()
 
         self.transformer_dim = config.get("transformer_dim")
-        self.input_proj = nn.Conv1d(6, self.transformer_dim, 1)
+        self.input_proj = nn.Conv1d(config.get("input_dim"), self.transformer_dim, 1)
         self.window_size = config.get("window_size")
+        self.encode_position = config.get("encode_position")
 
         encoder_layer = TransformerEncoderLayer(d_model = self.transformer_dim,
                                        nhead = config.get("nhead"),
@@ -29,6 +30,9 @@ class IMUTransformerEncoder(nn.Module):
                                               num_layers = config.get("num_encoder_layers"),
                                               norm=nn.LayerNorm(self.transformer_dim))
         self.cls_token = nn.Parameter(torch.zeros((1, self.transformer_dim)), requires_grad=True)
+
+        if self.encode_position:
+            self.position_embed = nn.Parameter(torch.randn(self.window_size + 1, 1, self.transformer_dim))
 
         config["output_dim"] = config.get("num_classes")
         self.imu_head = IMUHead(config)
@@ -50,6 +54,9 @@ class IMUTransformerEncoder(nn.Module):
         cls_token = self.cls_token.unsqueeze(1).repeat(1, src.shape[1], 1)
         src = torch.cat([cls_token, src])
 
+        # Add the position embedding
+        if self.encode_position:
+            src += self.position_embed
         # Transformer Encoder pass
         target = self.transformer_encoder(src)[0]
 
