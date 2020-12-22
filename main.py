@@ -174,17 +174,18 @@ if __name__ == "__main__":
 
                 # Evaluate and append
                 if task_type == "seq-to-seq":
-                    curr_metric = torch.norm(res-label)
+                    curr_metric = torch.norm(res-label) # TO DO change as required
                 else:  # seq-to-one
                     curr_metric = (torch.argmax(res)==label).to(torch.int)
-                print(curr_metric)
                 metric.append(curr_metric.item())
 
         # Record overall statistics
-        logging.info("Performance of {} on {}".format(args.checkpoint_path, args.imu_dataset_file))
+        stats_msg = "Performance of {} on {}".format(args.checkpoint_path, args.imu_dataset_file)
 
         if task_type == "seq-to-seq":
-            pass # TBA record summary statistics
+            stats_msg = stats_msg + "\n\tMean L2: {}".format(np.mean(metric)) # TO DO change as required
         else:
-            print(np.mean(metric))
+            stats_msg = stats_msg + "\n\tAccuracy: {}".format(np.mean(metric))
+
+        logging.info(stats_msg)
 
