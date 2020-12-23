@@ -107,7 +107,10 @@ if __name__ == "__main__":
 
             for batch_idx, minibatch in enumerate(dataloader):
                 minibatch["imu"] = minibatch["imu"].to(device).to(dtype=torch.float32)
-                label = minibatch.get('label').to(device).to(dtype=torch.long)
+                if task_type == 'seq-to-seq':
+                    label = minibatch.get('label').to(device).to(dtype=torch.float32)
+                else:
+                    label = minibatch.get('label').to(device).to(dtype=torch.long)
                 batch_size = label.shape[0]
                 n_samples += batch_size
                 n_total_samples += batch_size
@@ -167,7 +170,11 @@ if __name__ == "__main__":
             for i, minibatch in enumerate(dataloader, 0):
 
                 minibatch["imu"] = minibatch["imu"].to(device).to(dtype=torch.float32)
-                label = minibatch.get('label').to(device).to(dtype=torch.long)
+                if task_type == 'seq-to-seq':
+                    label = minibatch.get('label').to(device).to(dtype=torch.float32)
+                else:
+                    label = minibatch.get('label').to(device).to(dtype=torch.long)
+
 
                 # Forward pass to predict the pose
                 res = model(minibatch)
