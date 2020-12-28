@@ -81,13 +81,17 @@ if __name__ == "__main__":
                                                     gamma=config.get('lr_scheduler_gamma'))
 
         # Set the dataset and data loader
+        logging.info("Start train data preparation")
+        window_shift = config.get("window_shift")
         window_size = config.get("window_size")
         input_size = config.get("input_dim")
-        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size)
+
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size, window_shift)
         loader_params = {'batch_size': config.get('batch_size'),
                                   'shuffle': True,
                                   'num_workers': config.get('n_workers')}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
+        logging.info("Data preparation completed")
 
         # Get training details
         n_freq_print = config.get("n_freq_print")
@@ -99,6 +103,7 @@ if __name__ == "__main__":
         n_total_samples = 0.0
         loss_vals = []
         sample_count = []
+        logging.info("Start training")
         for epoch in range(n_epochs):
 
             # Resetting temporal loss used for logging
@@ -157,15 +162,20 @@ if __name__ == "__main__":
         model.eval()
 
         # Set the dataset and data loader
+        logging.info("Start test data preparation")
+        window_shift = config.get("window_shift")
         window_size = config.get("window_size")
         input_size = config.get("input_dim")
-        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size)
+        dataset = IMUDataset(args.imu_dataset_file, window_size, task_type, input_size,
+                             window_shift)
         loader_params = {'batch_size': 1,
                          'shuffle': False,
                          'num_workers': config.get('n_workers')}
         dataloader = torch.utils.data.DataLoader(dataset, **loader_params)
+        logging.info("Data preparation completed")
 
         metric = []
+        logging.info("Start testing")
         with torch.no_grad():
             for i, minibatch in enumerate(dataloader, 0):
 
