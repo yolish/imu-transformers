@@ -267,6 +267,7 @@ if plot_on:
 # if plot_on:
 #     plt.show()
 
+plt.subplot(2, 1, 1)
 plt.plot(w_vec[:, 0], label='phi')
 plt.plot(w_vec[:, 1], label='theta')
 plt.plot(w_vec[:, 2], label='psy')
@@ -275,9 +276,10 @@ plt.xlabel('Num of samples')
 plt.ylabel('[rad/sec]')
 plt.legend()
 plt.grid()
-if plot_on:
-    plt.show()
+# if plot_on:
+#     plt.show()
 
+plt.subplot(2, 1, 2)
 plt.plot(w_vec_noised[:, 0], label='phi')
 plt.plot(w_vec_noised[:, 1], label='theta')
 plt.plot(w_vec_noised[:, 2], label='psy')
