@@ -16,10 +16,15 @@ class IMUTransformerEncoder(nn.Module):
         super().__init__()
 
         self.transformer_dim = config.get("transformer_dim")
-        self.input_proj = nn.Conv1d(config.get("input_dim"), self.transformer_dim, 1)
+        #self.input_proj = nn.Conv1d(config.get("input_dim"), self.transformer_dim, 1)
+
+        self.input_proj = nn.Sequential(nn.Conv1d(config.get("input_dim"), self.transformer_dim, 1), nn.GELU(),
+                                        nn.Conv1d(self.transformer_dim, self.transformer_dim, 1), nn.GELU(),
+                                        nn.Conv1d(self.transformer_dim, self.transformer_dim, 1), nn.GELU(),
+                                        nn.Conv1d(self.transformer_dim, self.transformer_dim, 1), nn.GELU())
+
         self.window_size = config.get("window_size")
         self.encode_position = config.get("encode_position")
-
         encoder_layer = TransformerEncoderLayer(d_model = self.transformer_dim,
                                        nhead = config.get("nhead"),
                                        dim_feedforward = config.get("dim_feedforward"),
@@ -34,8 +39,14 @@ class IMUTransformerEncoder(nn.Module):
         if self.encode_position:
             self.position_embed = nn.Parameter(torch.randn(self.window_size + 1, 1, self.transformer_dim))
 
-        config["output_dim"] = config.get("num_classes")
-        self.imu_head = IMUHead(config)
+        num_classes =  config.get("num_classes")
+        #config["output_dim"] = num_classes
+
+        #self.imu_head = IMUHead(config)
+        self.imu_head = nn.Sequential(
+            nn.LayerNorm(self.transformer_dim),
+            nn.Linear(self.transformer_dim,  num_classes)
+        )
 
         self.log_softmax = nn.LogSoftmax(dim=1)
 
@@ -70,7 +81,8 @@ class IMUHead(nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        mlp_activation = config.get("head_activation")
+
+        mlp_activation= config.get("head_activation")
         output_dim = config.get("output_dim")
         encoder_dim = config.get("transformer_dim")
         self.mlp = nn.Sequential(nn.Linear(encoder_dim, encoder_dim // 2),
