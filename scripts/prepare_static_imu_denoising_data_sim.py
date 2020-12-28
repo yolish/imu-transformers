@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 number_of_samples = 2000
-plot_on = True
+plot_on = False
 
 gyro_vec_gt = np.zeros((number_of_samples,3))
 
@@ -42,9 +42,25 @@ if plot_on:
 
 
 # Saving the data
-data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
-data_name = '21_12_20_static_gyro_2K.csv'
+# data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
+# data_name = '21_12_20_static_gyro_2K.csv'
+#
+# concat_data = np.hstack((gyro_vec_noised, gyro_vec_gt))
+# dff = pd.DataFrame(data=concat_data)
+# dff.to_csv(data_dir_path + data_name, header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised','gyro_x', 'gyro_y', 'gyro_z'], index=False)
 
-concat_data = np.hstack((gyro_vec_noised, gyro_vec_gt))
-dff = pd.DataFrame(data=concat_data)
-dff.to_csv(data_dir_path + data_name, header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised','gyro_x', 'gyro_y', 'gyro_z'], index=False)
+### Prepare acceleration vector - different angle sequence simlation
+num_samples = 1000
+phi = np.random.rand()*np.pi/2
+print(phi)
+theta = np.random.rand()*np.pi/2
+print(theta)
+g = 9.806
+angles_vec = np.array([-np.sin(theta), np.sin(phi)*np.cos(theta), np.cos(phi)*np.cos(theta)])
+accel_vec = angles_vec*g
+print(angles_vec)
+accel_seq = np.vstack([accel_vec]*num_samples)
+print(accel_seq)
+
+
+a = 5
