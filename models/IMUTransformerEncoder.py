@@ -40,14 +40,10 @@ class IMUTransformerEncoder(nn.Module):
             self.position_embed = nn.Parameter(torch.randn(self.window_size + 1, 1, self.transformer_dim))
 
         num_classes =  config.get("num_classes")
-        #config["output_dim"] = num_classes
-
-        #self.imu_head = IMUHead(config)
         self.imu_head = nn.Sequential(
             nn.LayerNorm(self.transformer_dim),
             nn.Linear(self.transformer_dim,  num_classes)
         )
-
         self.log_softmax = nn.LogSoftmax(dim=1)
 
         # init
