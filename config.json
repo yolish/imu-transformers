@@ -9,6 +9,7 @@
 	"window_size":100,
 	"num_classes":2,
     "window_shift": 100,
+	"use_baseline": false,
 	
 	"encode_position":true,
 	"transformer_dim": 64,
@@ -19,6 +20,7 @@
 	"transformer_dropout": 0.1, 
 	"transformer_activation": "gelu",
 	"head_activation": "gelu",
+    "baseline_dropout": 0.1,
 	
 	"batch_size": 128,
 	"lr": 1e-4,
