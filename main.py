@@ -11,6 +11,7 @@ from util import utils
 from os.path import join
 from models.IMUTransformer import IMUTransformer
 from models.IMUTransformerEncoder import IMUTransformerEncoder
+from models.IMUCLSBaseline import IMUCLSBaseline
 from util.IMUDataset import IMUDataset
 
 if __name__ == "__main__":
@@ -53,8 +54,11 @@ if __name__ == "__main__":
     task_type = config.get("task_type")
     if task_type == "seq-to-seq":
         model = IMUTransformer(config).to(device)
-    else: # seq-to-one 
-        model = IMUTransformerEncoder(config).to(device)
+    else: # seq-to-one
+        if config.get("use_baseline"):
+            model = IMUCLSBaseline(config).to(device)
+        else:
+            model = IMUTransformerEncoder(config).to(device)
 
     # Load the checkpoint if needed
     if args.checkpoint_path:
