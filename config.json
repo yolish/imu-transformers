@@ -24,7 +24,7 @@
 	
 	"batch_size": 128,
 	"lr": 1e-4,
-	"weight_decay": 1e-04,
+	"weight_decay":1e-04,
 	"eps": 1e-10,
 	"lr_scheduler_step_size": 3,
 	"lr_scheduler_gamma": 0.5,
