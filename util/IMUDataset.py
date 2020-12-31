@@ -12,65 +12,52 @@ class IMUDataset(Dataset):
     """
 
     def __init__(self, imu_dataset_file, window_size, task_type, input_size,
-                 window_shift=None, exclude_multi_class_windows=False):
+                 window_shift=None):
         """
         :param imu_dataset_file: (str) a file with imu signals and their labels
         :param window_size (int): the window size to consider
         :param task_type (str): seq-to-seq or seq-to-one
         :param input_size (int): the input size (e.g. 6 for 6 IMU measurements)
         :param window_shift (int): the overlap between each window
-        :paraam exclude_multi_class_windows (bool): whether to exclude multi-class windows
         :return: an instance of the class
         """
         super(IMUDataset, self).__init__()
         # Read the file
+        self.task_type = task_type
         if window_shift is None:
             window_shift = window_size
         df = pd.read_csv(imu_dataset_file)
         if df.shape[1] == 1:
             df = pd.read_csv(imu_dataset_file, delimiter='\t')
         # Fetch the flatten IMU data and labels
-        flatten_imu = df.iloc[:, :input_size].values
-        flatten_labels = df.iloc[:, input_size:].values
-        n = flatten_labels.shape[0]
-        assert n % window_size == 0
-        imu = []
-        labels = []
-
-        # Collect labels and data per window
-        n = flatten_imu.shape[0]
-        start_index = 0
-        while True:
-
-            if start_index + window_size > n:
-                break
-            window_indices = list(range(start_index, (start_index + window_size)))
-
-            add_sample = True
-            label = flatten_labels[window_indices, :]
-            if task_type == "seq-to-one":
-
-                if len(np.unique(label)) > 1 and exclude_multi_class_windows:
-                    logging.info("window excluded - more than one class present")
-                    add_sample = False
-                else:
-                    label = label[0][0]
-
-            if add_sample:
-                imu.append(flatten_imu[window_indices, :])
-                labels.append(label)
-            start_index = start_index + window_shift
-        self.labels = labels
-        self.imu = imu
-        logging.info("Dataset parsed - number of windows: {} (generated from {} non-overlapping windows) ".format(
-            len(self.labels), n // window_size))
+        self.imu = df.iloc[:, :input_size].values
+        self.labels = df.iloc[:, input_size:].values
+        n = self.labels.shape[0]
+        self.start_indices = list(range(0, n - window_size + 1, window_shift))
+        self.window_size = window_size
+        logging.info(
+            "Number of windows: {} (generated from {} windows of size {} with shift {})".format(len(self.start_indices),
+                                                                                                n // window_size,
+                                                                                                window_size,
+                                                                                                window_shift))
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.start_indices)
 
     def __getitem__(self, idx):
-        sample = {'imu': self.imu[idx],
-                  'label': self.labels[idx]}
+        start_index = self.start_indices[idx]
+        window_indices = list(range(start_index, (start_index + self.window_size)))
+        imu = self.imu[window_indices, :]
+        window_labels = self.labels[window_indices, :]
+        if self.task_type == "seq-to-one":
+            if len(np.unique(window_labels)) > 1:
+                logging.warning("Window includes more than one class present, introducing noise")
+            label = window_labels[0][0]
+        else:
+            label = window_labels
+
+        sample = {'imu': imu,
+                  'label': label}
         return sample
 
 
