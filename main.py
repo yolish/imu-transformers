@@ -110,10 +110,6 @@ if __name__ == "__main__":
         logging.info("Start training")
         for epoch in range(n_epochs):
 
-            # Resetting temporal loss used for logging
-            running_loss = 0.0
-            n_samples = 0
-
             for batch_idx, minibatch in enumerate(dataloader):
                 minibatch["imu"] = minibatch["imu"].to(device).to(dtype=torch.float32)
                 if task_type == 'seq-to-seq':
@@ -121,7 +117,7 @@ if __name__ == "__main__":
                 else:
                     label = minibatch.get('label').to(device).to(dtype=torch.long)
                 batch_size = label.shape[0]
-                n_samples += batch_size
+
                 n_total_samples += batch_size
 
                 # Zero the gradients
@@ -134,8 +130,8 @@ if __name__ == "__main__":
                 criterion = loss(res, label)
 
                 # Collect for recoding and plotting
-                running_loss += criterion.item()
-                loss_vals.append(criterion.item())
+                batch_loss = criterion.item()
+                loss_vals.append(batch_loss)
                 sample_count.append(n_total_samples)
 
                 # Back prop
@@ -144,9 +140,9 @@ if __name__ == "__main__":
 
                 # Record loss on train set
                 if batch_idx % n_freq_print == 0:
-                    logging.info("[Batch-{}/Epoch-{}] running loss: {:.3f}".format(
+                    logging.info("[Batch-{}/Epoch-{}] batch loss: {:.3f}".format(
                                                                         batch_idx+1, epoch+1,
-                                                                        (running_loss/n_samples)))
+                                                                        batch_loss))
             # Save checkpoint
             if (epoch % n_freq_checkpoint) == 0 and epoch > 0:
                 torch.save(model.state_dict(), checkpoint_prefix + '_checkpoint-{}.pth'.format(epoch))
