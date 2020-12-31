@@ -71,30 +71,6 @@ class IMUTransformerEncoder(nn.Module):
         target = self.log_softmax(self.imu_head(target))
         return target
 
-
-class IMUHead(nn.Module):
-
-    def __init__(self, config):
-        super().__init__()
-
-
-        mlp_activation= config.get("head_activation")
-        output_dim = config.get("output_dim")
-        encoder_dim = config.get("transformer_dim")
-        self.mlp = nn.Sequential(nn.Linear(encoder_dim, encoder_dim // 2),
-                                       get_activation(mlp_activation),
-                                       nn.Linear(encoder_dim // 2, encoder_dim // 4),
-                                       get_activation(mlp_activation),
-                                       nn.Linear(encoder_dim // 4, output_dim))
-        # init
-        for p in self.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
-
-    def forward(self, x):
-        return self.mlp(x)
-
-
 def get_activation(activation):
     """Return an activation function given a string"""
     if activation == "relu":
