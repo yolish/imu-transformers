@@ -11,12 +11,11 @@ class IMUCLSBaseline(nn.Module):
         input_dim = config.get("input_dim")
         feature_dim = config.get("transformer_dim")
         window_size = config.get("window_size")
-        p = 0.2
 
         self.conv1 = nn.Sequential(nn.Conv1d(input_dim, feature_dim, kernel_size=1), nn.ReLU())
         self.conv2 = nn.Sequential(nn.Conv1d(feature_dim, feature_dim, kernel_size=1), nn.ReLU())
 
-        self.dropout = nn.Dropout(p)
+        self.dropout = nn.Dropout(config.get("baseline_dropout"))
         self.maxpool = nn.MaxPool1d(2) # Collapse T time steps to T/2
         self.fc1 = nn.Linear(window_size*(feature_dim//2), feature_dim, nn.ReLU())
         self.fc2 = nn.Linear(feature_dim,  config.get("num_classes"))
