@@ -23,6 +23,7 @@ class IMUTransformerEncoder(nn.Module):
                                         nn.Conv1d(self.transformer_dim, self.transformer_dim, 1), nn.GELU(),
                                         nn.Conv1d(self.transformer_dim, self.transformer_dim, 1), nn.GELU())
 
+
         self.window_size = config.get("window_size")
         self.encode_position = config.get("encode_position")
         encoder_layer = TransformerEncoderLayer(d_model = self.transformer_dim,
@@ -33,7 +34,7 @@ class IMUTransformerEncoder(nn.Module):
 
         self.transformer_encoder = TransformerEncoder(encoder_layer,
                                               num_layers = config.get("num_encoder_layers"),
-                                              norm=nn.LayerNorm(self.transformer_dim))
+                                              norm = nn.LayerNorm(self.transformer_dim))
         self.cls_token = nn.Parameter(torch.zeros((1, self.transformer_dim)), requires_grad=True)
 
         if self.encode_position:
@@ -42,7 +43,10 @@ class IMUTransformerEncoder(nn.Module):
         num_classes =  config.get("num_classes")
         self.imu_head = nn.Sequential(
             nn.LayerNorm(self.transformer_dim),
-            nn.Linear(self.transformer_dim,  num_classes)
+            nn.Linear(self.transformer_dim,  self.transformer_dim//4),
+            nn.GELU(),
+            nn.Dropout(0.1),
+            nn.Linear(self.transformer_dim//4,  num_classes)
         )
         self.log_softmax = nn.LogSoftmax(dim=1)
 
@@ -64,6 +68,7 @@ class IMUTransformerEncoder(nn.Module):
         # Add the position embedding
         if self.encode_position:
             src += self.position_embed
+
         # Transformer Encoder pass
         target = self.transformer_encoder(src)[0]
 
