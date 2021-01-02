@@ -123,3 +123,11 @@ plt.ylabel('[m/sec^2]')
 plt.legend()
 plt.grid()
 plt.show()
+
+# Saving the data
+data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
+data_name = '02_01_21_static_random_accel_4K.csv'
+
+concat_data = np.hstack((accel_seq_all_noised, accel_seq_all))
+dff = pd.DataFrame(data=concat_data)
+dff.to_csv(data_dir_path + data_name, header=['acell_x_noised', 'acell_y_noised', 'acell_z_noised','acell_x', 'acell_y', 'acell_z'], index=False)
