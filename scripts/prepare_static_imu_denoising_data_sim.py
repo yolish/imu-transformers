@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-
+import numpy as np
+import torch
 number_of_samples = 2000
 plot_on = False
 
@@ -50,7 +51,7 @@ gyro_vec_noised = gyro_vec_gt + w_noise   #noised
 # dff.to_csv(data_dir_path + data_name, header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised','gyro_x', 'gyro_y', 'gyro_z'], index=False)
 
 ### Prepare acceleration vector - different angle sequence simlation
-num_samples = 1000
+num_samples = 100000
 phi = np.random.rand()*np.pi/2
 print(phi)
 theta = np.random.rand()*np.pi/2
@@ -98,14 +99,14 @@ def add_noise(seq):
     # generating white noise
     mu_wf = 0
     sigma_wf = (20 * (1e-4)) / 9.81
-    sigma_wf = 500*0.2*(1e-2)/9.81
+    # sigma_wf = 500*0.2*(1e-2)/9.81
     w_f = np.random.normal(mu_wf, sigma_wf, (len(seq), 3))
     f_noise = b_f + w_f
     seq_noised = seq + f_noise
     return seq_noised
 
 
-num_of_seq = 3
+num_of_seq = 20
 num_samples = 1000
 avg_window_size = 20
 accel_seq_all = generate_accel_rand(num_samples)
@@ -168,11 +169,19 @@ plt.grid()
 
 plt.show()
 
+dist = np.linalg.norm(accel_seq_all_averaged-accel_seq_all)
+print("Dist Numpy: ", dist)
+
+t1 = torch.from_numpy(accel_seq_all_averaged)
+t2 = torch.from_numpy(accel_seq_all)
+dist_torch = torch.norm(t1-t2)
+print("Dist Torch: ", dist_torch)
+
 # Saving the data
-save_data = False
+save_data = True
 if save_data:
     data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
-    data_name = '03_01_21_static_random_accel_20_seq_of_1k.csv_test'
+    data_name = '24_01_21_static_random_accel_20_seq_of_1k_test.csv'
 
     concat_data = np.hstack((accel_seq_all_noised, accel_seq_all))
     dff = pd.DataFrame(data=concat_data)
