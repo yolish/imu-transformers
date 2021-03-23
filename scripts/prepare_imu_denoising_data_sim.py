@@ -215,10 +215,12 @@ w_vec[w_vec < -10] = -10
 # Adding noise - optional
 # adding noise to f_vec
 # generating offset offset
-b_f = (20*(1e-3))/9.81
+# b_f = (20*(1e-3))/9.81
+b_f = 0
 # generating white noise
 mu_wf = 0
-sigma_wf = 500*0.2*(1e-2)/9.81
+# sigma_wf = 500*0.2*(1e-2)/9.81
+sigma_wf = 200*(1e-4)/9.81
 w_f = np.random.normal(mu_wf, sigma_wf, (num_of_samples, 3))
 f_noise = b_f + w_f
 f_vec_noised = f_vec + f_noise  #noised
@@ -320,13 +322,59 @@ if plot_on:
 # if plot_on:
 #     plt.show()
 
-data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
+def moving_average(seq, window_size):
+    i = 0
+    averaged = seq.copy()
+    while i < len(seq)-window_size:
+        averaged[i][0] = np.mean(seq[i:i+window_size,0])
+        averaged[i][1] = np.mean(seq[i:i + window_size,1])
+        averaged[i][2] = np.mean(seq[i:i + window_size,2])
+        i = i + 1
+    return averaged
 
-data_name = '15_20_20_simple_sin_2000_samples_05deg_02m.csv'
-concat_data = np.hstack((f_vec_noised,w_vec_noised, f_vec, w_vec))
-dff = pd.DataFrame(data=concat_data)
-# dff.to_csv(data_dir_path + data_name, index_label=['sample_num'], header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised', 'grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'gyro_x', 'gyro_y', 'gyro_z', 'grav_x', 'grav_y', 'grav_z'])
-dff.to_csv(data_dir_path + data_name, header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised', 'grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'gyro_x', 'gyro_y', 'gyro_z', 'grav_x', 'grav_y', 'grav_z'], index=False)
+grav_movig_averaged = moving_average(f_vec_noised, 20)
+
+# plt.subplot(2, 1, 1)
+plt.plot(f_vec_noised[:, 0], label='X_noised')
+plt.plot(f_vec_noised[:, 1], label='Y_noised')
+plt.plot(f_vec_noised[:, 2], label='Z_noised')
+plt.title('Specific Force Noised')
+plt.xlabel('Num of samples')
+plt.ylabel('[m/sec^2]')
+plt.legend()
+plt.grid()
+
+# plt.subplot(2, 1, 2)
+plt.plot(grav_movig_averaged[:, 0], label='X_averaged')
+plt.plot(grav_movig_averaged[:, 1], label='Y_averaged')
+plt.plot(grav_movig_averaged[:, 2], label='Z_averaged')
+plt.title('Acceleration Averaged')
+plt.xlabel('Num of samples')
+plt.ylabel('[m/sec^2]')
+plt.legend()
+plt.grid()
+
+plt.show()
+
+dist = np.linalg.norm(grav_movig_averaged-f_vec)
+print("Dist Numpy: ", dist)
+
+data_dir_path = 'C:\\masters\\git\\imu-transformers\\datasets\\'
+save_data = False
+if save_data:
+    data_name = '08_02_21_simple_sin_dinamic_sine_50k_train.csv'
+    concat_data = np.hstack((f_vec_noised, f_vec))
+    dff = pd.DataFrame(data=concat_data)
+    # dff.to_csv(data_dir_path + data_name, index_label=['sample_num'], header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised', 'grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'gyro_x', 'gyro_y', 'gyro_z', 'grav_x', 'grav_y', 'grav_z'])
+    dff.to_csv(data_dir_path + data_name, header=['grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'grav_x', 'grav_y', 'grav_z'], index=False)
+
+
+
+# data_name = '15_20_20_simple_sin_2000_samples_05deg_02m.csv'
+# concat_data = np.hstack((f_vec_noised,w_vec_noised, f_vec, w_vec))
+# dff = pd.DataFrame(data=concat_data)
+# # dff.to_csv(data_dir_path + data_name, index_label=['sample_num'], header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised', 'grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'gyro_x', 'gyro_y', 'gyro_z', 'grav_x', 'grav_y', 'grav_z'])
+# dff.to_csv(data_dir_path + data_name, header=['gyro_x_noised', 'gyro_y_noised', 'gyro_z_noised', 'grav_x_noised', 'grav_y_noised', 'grav_z_noised', 'gyro_x', 'gyro_y', 'gyro_z', 'grav_x', 'grav_y', 'grav_z'], index=False)
 
 
 # data_name = '23_02_20_simple_sin_2000_05deg_02m.csv'
